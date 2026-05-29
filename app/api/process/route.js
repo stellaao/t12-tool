@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import archiver from 'archiver';
-import { Readable } from 'stream';
 
 const TEMPLATE_DIR = path.join(process.cwd(), 'template');
 const IMAGE_COUNT = 11;
@@ -22,7 +22,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: '請上傳圖片' });
     }
 
-    // Build image map: image1.jpeg -> uploaded file (in order)
+    // Build image map
     const imageMap = {};
     files.slice(0, IMAGE_COUNT).forEach((file, i) => {
       const key = `image${i + 1}.jpeg`;
@@ -44,24 +44,12 @@ export default async function handler(req, res) {
     const appProps = fs.readFileSync(path.join(TEMPLATE_DIR, 'docProps/app.xml'));
     const rootRels = fs.readFileSync(path.join(TEMPLATE_DIR, '_rels/.rels'));
 
-    // Create ZIP in memory
-    const chunks = [];
+    // Write ZIP to temp file
+    const tmpFile = path.join(os.tmpdir(), 't12_output_' + Date.now() + '.zip');
+    const output = fs.createWriteStream(tmpFile);
     const archive = archiver('zip', { zlib: { level: 9 } });
 
-    const archiveStream = new Readable({
-      read() {
-        archive.on('data', chunk => chunks.push(chunk));
-        archive.on('end', () => {
-          const buffer = Buffer.concat(chunks);
-          res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-          res.setHeader('Content-Disposition', 'attachment; filename="T12_吊船文件.docx"');
-          res.setHeader('Content-Length', buffer.length);
-          res.end(buffer);
-        });
-      }
-    });
-
-    archive.pipe(archiveStream);
+    archive.pipe(output);
 
     // Add all static template files
     archive.append(contentTypes, { name: '[Content_Types].xml' });
@@ -82,10 +70,8 @@ export default async function handler(req, res) {
     for (let i = 1; i <= IMAGE_COUNT; i++) {
       const key = `image${i}.jpeg`;
       if (imageMap[key]) {
-        const imageBuffer = await fileToBuffer(imageMap[key]);
-        archive.append(imageBuffer, { name: `word/media/${key}` });
+        archive.append(imageMap[key].buffer, { name: `word/media/${key}` });
       } else {
-        // Use template image
         const templateImage = path.join(TEMPLATE_DIR, `word/media/${key}`);
         if (fs.existsSync(templateImage)) {
           archive.file(templateImage, { name: `word/media/${key}` });
@@ -93,7 +79,22 @@ export default async function handler(req, res) {
       }
     }
 
-    archive.finalize();
+    await archive.finalize();
+
+    // Wait for write to finish
+    await new Promise((resolve, reject) => {
+      output.on('close', resolve);
+      output.on('error', reject);
+    });
+
+    // Read and send
+    const buffer = fs.readFileSync(tmpFile);
+    fs.unlinkSync(tmpFile);
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', 'attachment; filename="T12_吊船文件.docx"');
+    res.setHeader('Content-Length', buffer.length);
+    res.end(buffer);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '處理失敗：' + err.message });
@@ -102,11 +103,10 @@ export default async function handler(req, res) {
 
 async function parseFormData(req) {
   const { default: Busboy } = await import('busboy');
-  
+
   return new Promise((resolve, reject) => {
     const bb = Busboy({ headers: req.headers });
     const files = [];
-    const fields = {};
 
     bb.on('file', (name, file, info) => {
       const chunks = [];
@@ -123,10 +123,4 @@ async function parseFormData(req) {
     bb.on('error', reject);
     req.pipe(bb);
   });
-}
-
-async function fileToBuffer(file) {
-  if (Buffer.isBuffer(file)) return file;
-  if (file.buffer) return file.buffer;
-  return file;
 }
