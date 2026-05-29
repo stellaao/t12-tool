@@ -1,12 +1,12 @@
 {
   "framework": "nextjs",
+  "project": "t12-image-tool",
   "buildCommand": "npx next build",
   "installCommand": "npm install",
-  "regions": ["hkg-bos"],
+  "regions": ["hkg"],
   "functions": {
     "app/api/**/*.js": {
-      "memory": 512,
-      "timeoutSeconds": 30
+      "memory": 512
     }
   }
 }

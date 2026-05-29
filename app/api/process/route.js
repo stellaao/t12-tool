@@ -6,12 +6,8 @@ import { Readable } from 'stream';
 const TEMPLATE_DIR = path.join(process.cwd(), 'template');
 const IMAGE_COUNT = 11;
 
-export const config = {
-  api: {
-    bodyParser: false,
-    responseLimit: '50mb',
-  },
-};
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
