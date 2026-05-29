@@ -1,0 +1,12 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "npx next build",
+  "installCommand": "npm install",
+  "regions": ["hkg-bos"],
+  "functions": {
+    "app/api/**/*.js": {
+      "memory": 512,
+      "timeoutSeconds": 30
+    }
+  }
+}
