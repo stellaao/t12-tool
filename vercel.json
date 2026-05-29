@@ -3,7 +3,7 @@
   "project": "t12-image-tool",
   "buildCommand": "npx next build",
   "installCommand": "npm install",
-  "regions": ["hkg"],
+  "regions": ["hkg1"],
   "functions": {
     "app/api/**/*.js": {
       "memory": 512
