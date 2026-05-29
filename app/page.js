@@ -46,12 +46,18 @@ export default function Home() {
         body: formData,
       });
 
+      const text = await res.text();
+
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || '處理失敗');
+        try {
+          const data = JSON.parse(text);
+          throw new Error(data.error || '處理失敗');
+        } catch {
+          throw new Error(text || '處理失敗 (HTTP ' + res.status + ')');
+        }
       }
 
-      const blob = await res.blob();
+      const blob = new Blob([text], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
       const url = URL.createObjectURL(blob);
       setResultUrl(url);
     } catch (err) {
